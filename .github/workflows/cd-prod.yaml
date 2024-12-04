@@ -1,0 +1,47 @@
+name: CD to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to deploy'
+        required: true
+        default: 'latest'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.inputs.tag }}
+
+    - name: Download artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: dist
+        path: dist/
+
+    - name: Deploy to Production
+      env:
+        PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        PROD_HOST: ${{ secrets.PROD_HOST }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "$PROD_SSH_KEY" > ~/.ssh/prod_key
+        chmod 600 ~/.ssh/prod_key
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/prod_key ubuntu@$PROD_HOST 'cd /path/to/prod/app && git pull origin main && npm ci && npm run build && npm start'
+
+    - name: Create Production Deployment
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{secrets.GITHUB_TOKEN}}
+        script: |
+          github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.sha,
+            environment: 'production',
+            description: 'Deploy to production'
+          })

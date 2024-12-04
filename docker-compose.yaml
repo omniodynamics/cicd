@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  appdb:
+    image: mongo:latest
+    container_name: appdb
+    ports:
+      - "27017:27017"  # Maps container port 27017 to localhost:27017
+    volumes:
+      - appdb-data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    networks:
+      - appdb-network
+
+  user-service:
+    image: user-service
+    container_name: users
+    ports:
+      - "3000:3000"  # Maps container port 3000 to localhost:3000
+    environment:
+      MONGODB_URI: mongodb://root:example@appdb:27017/admin  # Use service name 'appdb'
+      PORT: "3000"
+    networks:
+      - appdb-network
+
+  order-service:
+    image: order-service
+    container_name: orders
+    ports:
+      - "3001:3001"  # Maps container port 3001 to localhost:3001
+    environment:
+      MONGODB_URI: mongodb://root:example@appdb:27017/admin  # Use service name 'appdb'
+      PORT: "3001"
+      USER_SERVICE_URL: http://users:3000  # Use service name 'users' for user-service
+    networks:
+      - appdb-network
+
+volumes:
+  appdb-data:
+
+networks:
+  appdb-network:
+    driver: bridge
